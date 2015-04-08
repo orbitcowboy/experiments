@@ -1,0 +1,3 @@
+simple_shell_macros    http://repository/svn/tools/trunk/modules/simple_shell_macros/src
+simple_tokenize        http://repository/svn/tools/trunk/modules/simple_tokenize/src
+simple_testsuite       http://repository/svn/tools/trunk/modules/simple_testsuite/src

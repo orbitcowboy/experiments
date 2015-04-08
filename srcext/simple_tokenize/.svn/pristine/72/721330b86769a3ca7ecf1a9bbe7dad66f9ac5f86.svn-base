@@ -1,0 +1,342 @@
+#ifndef SIMPLE_TOKENIZE_HPP
+#define SIMPLE_TOKENIZE_HPP
+
+#include <functional>
+#include <string>
+#include <vector>
+#include <algorithm>
+#include <cctype>
+#include <ctype.h>
+#include <cstring>
+#include <cstdlib>
+
+/**
+@todo -> extend the tokenizer to be able to concatenate several literals with
+         boolean operators e.g: a & b, a | b, ....
+*/
+
+class CIsSpace : public std::unary_function<char, bool>
+{
+    public:
+        bool operator() (const char &c) const
+        {
+            return isspace(c);
+        }
+};
+
+//For the case the separator is a comma (',')
+class CIsComma : public std::unary_function<char, bool>
+{
+    public:
+        bool operator()(const char &c) const
+        {
+            return (',' == c);
+        }
+};
+
+//For the case the separator is an ampersand ('&')
+class CIsAmpersand : public std::unary_function<char, bool>
+{
+    public:
+        bool operator()(const char &c) const
+        {
+            return ('&' == c);
+        }
+};
+
+// For the case the separator is + (plus) or - (minus) or / (division) or * (multiplicand)
+class CIsArithmetik : public std::unary_function<char, bool>
+{
+    public:
+        bool operator()(const char &c) const
+        {
+            return (('/' == c) || ('+' == c) || ('-' == c) || ('*' == c));
+        }
+};
+
+//For the case the separator is a character from a set of characters given in a string
+class CIsFromString : public std::unary_function<char, bool>
+{
+    public:
+        //Constructor specifying the separators
+        CIsFromString(const std::string & rostr) : m_ostr(rostr) {}
+        bool operator()(const char &c) const;
+
+    private:
+        std::string m_ostr;
+};
+
+inline bool CIsFromString::operator()(const char &c) const
+{
+    if(m_ostr.find(c) != std::string::npos)
+        return true;
+    else
+        return false;
+}
+
+// -------------------------------------------------------------------
+/// \brief a class to simply tokenize strings
+///
+// -------------------------------------------------------------------
+template < class Pred = CIsSpace > class simple_tokenize
+{
+    public:
+
+        static void Tokenize(std::vector<std::string>& roResult
+                             , const std::string & rostr
+                             , const Pred & roPred = Pred());
+
+        static void Tokenize(std::vector<std::string>& strVecResult
+                             , const std::string &strToTokenize
+                             , const std::string &strPattern);
+
+        static void TokenizeAndGetNthToken(std::string& roResult
+                                           , const std::string & rostr
+                                           , const Pred & roPred
+                                           , const size_t &tokenIndex);
+
+        // tokenize a string according to gives front and back token
+        static std::string TokenizeByFrontAndBack(const std::string &strToTokenize
+                , const std::string &strTokenFront
+                , const std::string &strTokenBack);
+
+        // tokenize a string according to multiple tokens
+        static std::vector<std::string> MultiTokenize(const std::string &strToTokenize
+                , const std::string &strMultiTokens);
+
+        // a more convenient function. It returns an vector of strings
+        static std::vector<std::string> Tokenize(const std::string & rostr
+                , const Pred & roPred = Pred());
+
+        static std::vector< std::vector<std::string> > Tokenize(const std::vector<std::string> & vector_of_strings
+                , const Pred & roPred = Pred());
+};
+
+// --------------------------------------------------------------------------------------------
+/// tokenize function
+/// here, the string will be split up by the provided tokens
+///
+/// usage:
+///         std::string strToTokenize = "sum\tsum\ngoes   home   now!!!";
+///         vector<std::string> strResult;
+///         simple_tokenize<>::Tokenize(strResult,strToTokenize);
+///
+///         if( strResult[0]!="sum"  && strResult[1]!="sum"
+///         && strResult[2]!="goes" && strResult[3]!="home"
+///         && strResult[4]!="now!!!") return false;
+///
+/// \param roResult --> an empty vector of type string
+/// \param rostr    --> the string to be tokenized
+/// \param roPred   --> the token
+///
+// --------------------------------------------------------------------------------------------
+template <class Pred> inline void simple_tokenize<Pred>::Tokenize(std::vector<std::string>& roResult, const std::string & rostr, const Pred & roPred)
+{
+    //First clear the results vector
+    roResult.clear();
+    std::string::const_iterator it          = rostr.begin();
+    std::string::const_iterator itTokenEnd  = rostr.begin();
+    while(it != rostr.end())
+    {
+        //Eat separators
+        while(roPred(*it)) ++it;
+
+        //Find next token
+        itTokenEnd = find_if(it, rostr.end(), roPred);
+        //Append token to result
+        if(it < itTokenEnd)
+            roResult.push_back(std::string(it, itTokenEnd));
+        it = itTokenEnd;
+    }
+}
+
+// --------------------------------------------------------------------------------------------
+/// Tokenize a string and return the Nth token.
+/// This function splits a string into several pieces, according to the provided
+/// delimiter and selects returns the Nth token.
+///
+/// \param roResult <--> the Nth token
+/// \param rostr    --> the string to be tokenized
+/// \param roPred   --> the token
+/// \param tokenIndex --> the desired token
+///
+// --------------------------------------------------------------------------------------------
+template <class Pred> inline void simple_tokenize<Pred>::TokenizeAndGetNthToken(std::string& roResult, const std::string & rostr, const Pred & roPred, const size_t &tokenIndex)
+{
+    std::vector<std::string> resultVector;
+    simple_tokenize<Pred>::Tokenize(resultVector, rostr, roPred);
+    if(tokenIndex < resultVector.size())
+    {
+        roResult = resultVector[tokenIndex];
+    }
+}
+
+// --------------------------------------------------------------------------------------------
+/// tokenize function
+/// here, the string will be split up by the provided tokens
+///
+/// usage:
+///         std::string strToTokenize = "sum\tsum\ngoes   home   now!!!";
+///         std::vector<std::string> strResult(simple_tokenize<>::Tokenize(strToTokenize));
+///
+///         if( strResult[0]!="sum"  && strResult[1]!="sum"
+///         && strResult[2]!="goes" && strResult[3]!="home"
+///         && strResult[4]!="now!!!") return false;
+///
+/// \param rostr    --> the string to be tokenized
+/// \param roPred   --> the token
+///
+///
+/// \return <-- an stl vector of type string with the tokenized items
+// --------------------------------------------------------------------------------------------
+template <class Pred> inline std::vector<std::string> simple_tokenize<Pred>::Tokenize(std::string const& rostr, Pred const& roPred)
+{
+    // allocate memory
+    std::vector<std::string> roResult;
+    // tokenize
+    Tokenize(roResult, rostr, roPred);
+    // return result
+    return roResult;
+}
+
+// --------------------------------------------------------------------------------------------
+/// tokenize function
+/// here, the vector of strings will be split up by the provided tokens
+///
+/// usage:
+///         std::vector<std::string> strAToTokenize;
+///                                  strAToTokenize.push_back("t e s t!");
+///                                  strAToTokenize.push_back("T E S T!");
+///         std::vector< std::vector<std::string> > strAResult = simple_tokenize<>::Tokenize(strAToTokenize);
+///         if (strAResult[0][0] != "t" &&
+///             strAResult[0][1] != "e" &&
+///             strAResult[0][2] != "s" &&
+///             strAResult[0][3] != "t!"&&
+///             strAResult[1][0] != "T" &&
+///             strAResult[1][1] != "E" &&
+///             strAResult[1][2] != "S" &&
+///             strAResult[1][3] != "T!")
+///             return false;
+///
+///
+///
+///
+/// \param vector_of_strings    --> a vector of string that should be tokenized
+/// \param roPred               --> the token
+///
+///
+/// \return <-- an stl vector that contains vectors of tokenized strings
+// --------------------------------------------------------------------------------------------
+template <class Pred> inline std::vector< std::vector<std::string> > simple_tokenize<Pred>::Tokenize(const std::vector<std::string> & vector_of_strings
+        , const Pred & roPred)
+{
+    std::vector< std::vector < std::string > > result;
+    for(unsigned int ui = 0; ui < vector_of_strings.size(); ui++)
+    {
+        result.push_back(Tokenize(vector_of_strings[ui], roPred));
+    }
+    return result;
+}
+
+// --------------------------------------------------------------------------------------------
+/// tokenize function
+/// here, the vector of strings will be split up by the provided tokens
+/// @author ettl martin (ettl@fs.wettzell.de)
+/// @date   2011-01-14
+///
+/// \param strResult            <--> an stl vector of type std::string, it will be filled with tokens
+/// \param strToTokenize        --> a std::string that will be tokenized
+/// \param strPattern           --> a pattern
+///
+// --------------------------------------------------------------------------------------------
+template <class Pred> void simple_tokenize<Pred>::Tokenize(std::vector<std::string>& strResult
+        , const std::string &strToTokenize
+        , const std::string &strPattern)
+{
+    // ---------
+    // precheck:
+    // ---------
+    if(strToTokenize.empty())
+        return;
+    if(strPattern.empty())
+        return;
+
+    // create a working copy
+    std::string str(strToTokenize);
+    // remove preceding pattern
+    if(str.find(strPattern) == 0)
+    {
+        str = str.substr(strPattern.length());
+    }
+    // loop over patterns
+    while(true)
+    {
+        size_t foundPatternBeg = str.find(strPattern);
+        if (foundPatternBeg != std::string::npos)
+        {
+            strResult.push_back(str.substr(0, foundPatternBeg));
+            str = str.substr(foundPatternBeg + strPattern.length());
+        }
+        else
+        {
+            strResult.push_back(str.substr(0, foundPatternBeg));
+            break;
+        }
+    }
+}
+
+template <class Pred> std::string simple_tokenize<Pred>::TokenizeByFrontAndBack(const std::string &strToTokenize
+        , const std::string &strTokenFront
+        , const std::string &strTokenBack)
+{
+    std::vector<std::string>  strResult;
+    // does the string contain the tokens?
+    if(((strToTokenize.find(strTokenFront) != std::string::npos)
+            && (strToTokenize.find(strTokenBack)) != std::string::npos))
+    {
+        simple_tokenize<>::Tokenize(strResult, strToTokenize, strTokenFront);
+        // determine the index for the second tokenization
+        const unsigned short index = ( (strResult.size() > 1U) ? 1U : 0U );
+        std::vector<std::string>  strResult1;
+        simple_tokenize<>::Tokenize(strResult1, strResult[index], strTokenBack);
+        if(strResult1.empty() == false)
+        {
+            return strResult1[0];
+        }
+    }
+    return std::string("");
+}
+
+template <class Pred> std::vector<std::string> simple_tokenize<Pred>::MultiTokenize(const std::string &strToTokenize
+        , const std::string &strMultiTokens)
+{
+    // allocate a buffer (needed by strtok_r and strtok_s)
+    char *cBuf  = NULL;
+
+    std::vector<std::string>  strVResult;
+    std::string str(strToTokenize);
+    // start tokenizing the string
+#ifdef WIN32
+    char *token = strtok_s( const_cast<char*>( str.c_str() ), strMultiTokens.c_str(), &cBuf );
+#else // LINUX
+    char *token = strtok_r( const_cast<char*>( str.c_str() ), strMultiTokens.c_str(), &cBuf );
+#endif
+
+    // iterate over all tokens
+    while ( token != NULL )
+    {
+        // save the numeral
+        strVResult.push_back( token );
+
+        // get next token (if any)
+#ifdef WIN32
+        token = strtok_s( NULL, strMultiTokens.c_str(), &cBuf);
+#else // LINUX
+        token = strtok_r( NULL, strMultiTokens.c_str(), &cBuf);
+#endif
+    }
+    return strVResult;
+}
+
+#endif // SIMPLE_TOKENIZE_HPP
+
