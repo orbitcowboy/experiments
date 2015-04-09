@@ -320,6 +320,7 @@ void TestFixture::reportStatus(void) const
 {
     // report results
     // fill up with dots
+    const std::ios::fmtflags currentFormatFlags( cout.flags() );
     if(!m_Settings.bIsTXT2TagsOutputSet())
     {
         int width = static_cast<int>(m_LengthOfLinePtr);
@@ -358,6 +359,8 @@ void TestFixture::reportStatus(void) const
         std::cout << " | ";
     }
     std::cout << "\n";
+    // restore the format flags for the next run
+    std::cout.flags(currentFormatFlags);
 }
 
 std::string TestFixture::strWriteStr(const std::string &str)
@@ -673,10 +676,7 @@ bool TestFixture::executeExternalTool(const std::string &toolName, const std::st
     if(std::system(systemCallCommand.c_str()))   // System call is failing
     {
         // delete temp file
-        if( remove( tempFileName.c_str() ) != 0 )
-        {
-            return false;
-        }
+        (void)remove( tempFileName.c_str() );
         return false;
     }
     // read captured file content and open an input stream object
